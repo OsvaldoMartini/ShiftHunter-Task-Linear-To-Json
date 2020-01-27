@@ -1,30 +1,36 @@
 package com.shifthunter.tasks;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
-import java.io.PrintWriter;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Stack;
 import java.util.TreeMap;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Import;
 
+import com.fasterxml.jackson.core.JsonGenerationException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.base.Joiner;
 
 // Defined Sub Class
@@ -33,6 +39,8 @@ import com.google.common.base.Joiner;
 //@Configurable
 public class TollProcessingTask implements CommandLineRunner {
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
+
+	private static final ObjectMapper mapper = new ObjectMapper();
 
 //	@Autowired
 //	public TollProcessingTask toolPT;
@@ -70,10 +78,10 @@ public class TollProcessingTask implements CommandLineRunner {
 					argsMap.put(arr[0], arr[1]);
 					logger.info("Args " + arr[0] + " " + arr[1]);
 				}
-				
+
 				config.setTestCaseLine(argsMap.get("testCaseLine"));
 				config.setOperationName(argsMap.get("operationName"));
-				
+
 				logger.info("Arguments \n");
 				logger.info("testCaseLine: " + config.getTestCaseLine());
 				logger.info("operationName: " + config.getOperationName());
@@ -95,14 +103,17 @@ public class TollProcessingTask implements CommandLineRunner {
 	 * This is To Generate the Data Input <Path Origin File> <Path Destine File
 	 * <File Name> Maybe Task Name ???
 	 */
-	private void taskConvertLineToJson(String pathDataFile, String testCaseLine, String operationName, String fileExtension)
-			throws FileNotFoundException, UnsupportedEncodingException {
+	private void taskConvertLineToJson(String pathDataFile, String testCaseLine, String operationName,
+			String fileExtension) throws FileNotFoundException, UnsupportedEncodingException {
 		// Clean the First HashMap
 		TreeMap<String, String[]> lstFieldValue = new TreeMap<>();
 		TreeMap<String, String[]> lstFieldAttrib = new TreeMap<>();
 		String[] keyAttributes = { ".maxLength", ".minLength", ".required", ".enum" };
 
-		List<String> lines = readsFile(pathDataFile, testCaseLine, operationName, fileExtension);
+		Map<String, String[]> mapLines = readsFile(pathDataFile, testCaseLine, operationName, fileExtension);
+
+		Stack<String> keyPath = new Stack<String>();
+		String[] jsonResult = identifyObject(mapLines, keyPath);
 
 		// Split lines from the Break Line
 		// String lines[] = linearBlock.split("\\r?\\n");
@@ -239,7 +250,6 @@ public class TollProcessingTask implements CommandLineRunner {
 //			System.exit(1);
 //		}
 
-
 		String[] lstTesCaseName = {};
 
 		String[] allNegNames = new String[arrNegTitle.length];
@@ -258,10 +268,6 @@ public class TollProcessingTask implements CommandLineRunner {
 //		String[] allNegatives = new String[negatives_1.length + negatives_2.length];
 //		System.arraycopy(negatives_1, 0, allNegatives, 0, negatives_1.length);
 //		System.arraycopy(negatives_2, 0, allNegatives, negatives_1.length, negatives_2.length);
-
-
-
-
 
 //		String destinyFile = pathDestiny + "/data";
 //		File f = new File(destinyFile);
@@ -290,9 +296,10 @@ public class TollProcessingTask implements CommandLineRunner {
 	/*
 	 * Read file
 	 */
-	public List<String> readsFile(String pathSource, String testCaseLine, String fileName, String fileExtension) {
+	public Map<String, String[]> readsFile(String pathSource, String testCaseLine, String fileName,
+			String fileExtension) {
 
-		String operFileName = pathSource  + "/" + fileName + "." + fileExtension;
+		String operFileName = pathSource + "/" + fileName + "." + fileExtension;
 
 		try {
 
@@ -301,29 +308,29 @@ public class TollProcessingTask implements CommandLineRunner {
 				throw new Exception(String.format("File Not Exist: %s : %s", pathSource, fileName));
 			}
 
-			List<String> list = new ArrayList<>();
+			Map<String, String[]> mapLines = new HashMap<String, String[]>();
 
 			// it Reads the file
 			try (BufferedReader br = new BufferedReader(new FileReader(operFileName))) {
-				
+
 				String line;
-				boolean isColumnsNames = true; //For the First Line
-				
+				boolean isColumnsNames = true; // For the First Line
+
 				while ((line = br.readLine()) != null) {
 					String[] arrColumns = line.split(",");
 					if (isColumnsNames) {
-						list.add(line);
+						mapLines.put("ColumnsNames", arrColumns);
 						isColumnsNames = false;
-					}else if (arrColumns[0].equalsIgnoreCase(testCaseLine)) {
-						list.add(line);
+					} else if (arrColumns[0].equalsIgnoreCase(testCaseLine)) {
+						mapLines.put("ColumnsValues", arrColumns);
 						logger.info(String.format("Read line: %s ", line));
 						break;
 					}
 				}
 				br.close();
 			}
-			
-			return list;
+
+			return mapLines;
 
 		} catch (Exception e) {
 
@@ -333,6 +340,46 @@ public class TollProcessingTask implements CommandLineRunner {
 		return null;
 	}
 
+	public String[] identifyObject(Map<String, String[]> mapLines, Stack<String> keyPath) {
+		JsonNode root = mapper.readTree("{}");
+
+		Map<String, String> mapArrays = new HashMap<String, String>();
+
+		Map<String, String> mapObjects = new HashMap<String, String>();
+
+		//String column = columnName.pop();
+		for (Map.Entry<String, String[]> entry : mapLines.entrySet()) {
+
+			String[] colunName = entry.getKey().split(Pattern.quote("."));
+			String colunValue = entry.getValue();
+					
+			for(String col: colunName) {
+				ObjectNode game1 = mapper.createObjectNode().objectNode();
+				game1.put("name", "Fall Out 4");
+			}
+			
+			
+			if ("DATA_TYPE".equalsIgnoreCase(colunName) || "TEST_CASE".equalsIgnoreCase(colunName)) {
+				continue;
+			}
+
+			// If the Dot is the last then the field name is the last
+
+		}
+
+		
+		try {
+			int idxArr = Integer.parseInt(column);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		
+		
+		return new String[0];
+
+	}
 
 	public void displayArray(int[] w) {
 		logger.info("\t\t\t[");
