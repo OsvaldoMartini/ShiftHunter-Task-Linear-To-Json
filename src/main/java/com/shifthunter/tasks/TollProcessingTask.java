@@ -112,8 +112,26 @@ public class TollProcessingTask implements CommandLineRunner {
 
 		Map<String, String[]> mapLines = readsFile(pathDataFile, testCaseLine, operationName, fileExtension);
 
+		String[] columArray = mapLines.get("ColumnsNames");
+		for (String fieldName : columArray) {
+			// Last Position in the array
+			int lastIndexOf = fieldName.lastIndexOf(".") > -1 ? fieldName.lastIndexOf(".") : 0;
+			String lastOne = fieldName.substring(lastIndexOf);
+			String allValues = Arrays.asList(keyAttributes).toString();
+			allValues = String.join(",", keyAttributes);
+
+		}
+
 		Stack<String> keyPath = new Stack<String>();
-		String[] jsonResult = identifyObject(mapLines, keyPath);
+
+		try {
+
+			String[] jsonResult = identifyObject(mapLines, keyPath);
+
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 
 		// Split lines from the Break Line
 		// String lines[] = linearBlock.split("\\r?\\n");
@@ -126,37 +144,37 @@ public class TollProcessingTask implements CommandLineRunner {
 		String columnAttributes = null;
 		String[] arrNegTitle = {};
 		String[] arrNegValues = {};
-		for (String line : lines) {
-			String[] preField = line.split(":");
-
-			String fieldName = preField[0].toString();
-			String fieldValue = preField[1].toString();
-
-			if (fieldName.equalsIgnoreCase("NegativeTitles")) {
-				arrNegTitle = fieldValue.split(","); // negativeTitles.split(",");
-				continue;
-			} else if (fieldName.equalsIgnoreCase("NegativeValues")) {
-				arrNegValues = fieldValue.split(","); // negativeValues.replace("\"", "").split(",");
-				continue;
-			}
-
-			// Last Position in the array
-			int lastIndexOf = fieldName.lastIndexOf(".") > -1 ? fieldName.lastIndexOf(".") : 0;
-			String lastOne = fieldName.substring(lastIndexOf);
-			String allValues = Arrays.asList(keyAttributes).toString();
-			allValues = String.join(",", keyAttributes);
-
-			if (allValues.indexOf(lastOne) > -1) {
-				logger.info(String.format("Contains Attributes: %s - : %s:", fieldName, fieldValue));
-				lstFieldAttrib.put(fieldName, fieldValue.split(","));
-				columnAttributes = Joiner.on(",").skipNulls().join(columnAttributes, fieldName);
-
-			} else {
-				logger.info(String.format("Contains Values: %s - : %s:", fieldName, fieldValue));
-				lstFieldValue.put(fieldName, fieldValue.split(","));
-				columnValues = Joiner.on(",").skipNulls().join(columnValues, fieldName);
-			}
-		}
+//		for (String line : lines) {
+//			String[] preField = line.split(":");
+//
+//			String fieldName = preField[0].toString();
+//			String fieldValue = preField[1].toString();
+//
+//			if (fieldName.equalsIgnoreCase("NegativeTitles")) {
+//				arrNegTitle = fieldValue.split(","); // negativeTitles.split(",");
+//				continue;
+//			} else if (fieldName.equalsIgnoreCase("NegativeValues")) {
+//				arrNegValues = fieldValue.split(","); // negativeValues.replace("\"", "").split(",");
+//				continue;
+//			}
+//
+//			// Last Position in the array
+//			int lastIndexOf = fieldName.lastIndexOf(".") > -1 ? fieldName.lastIndexOf(".") : 0;
+//			String lastOne = fieldName.substring(lastIndexOf);
+//			String allValues = Arrays.asList(keyAttributes).toString();
+//			allValues = String.join(",", keyAttributes);
+//
+//			if (allValues.indexOf(lastOne) > -1) {
+//				logger.info(String.format("Contains Attributes: %s - : %s:", fieldName, fieldValue));
+//				lstFieldAttrib.put(fieldName, fieldValue.split(","));
+//				columnAttributes = Joiner.on(",").skipNulls().join(columnAttributes, fieldName);
+//
+//			} else {
+//				logger.info(String.format("Contains Values: %s - : %s:", fieldName, fieldValue));
+//				lstFieldValue.put(fieldName, fieldValue.split(","));
+//				columnValues = Joiner.on(",").skipNulls().join(columnValues, fieldName);
+//			}
+//		}
 
 		// First Lines
 		if (columnValues == null) {
@@ -312,7 +330,6 @@ public class TollProcessingTask implements CommandLineRunner {
 
 			// it Reads the file
 			try (BufferedReader br = new BufferedReader(new FileReader(operFileName))) {
-
 				String line;
 				boolean isColumnsNames = true; // For the First Line
 
@@ -340,46 +357,146 @@ public class TollProcessingTask implements CommandLineRunner {
 		return null;
 	}
 
-	public String[] identifyObject(Map<String, String[]> mapLines, Stack<String> keyPath) {
-		JsonNode root = mapper.readTree("{}");
-
-		Map<String, String> mapArrays = new HashMap<String, String>();
-
-		Map<String, String> mapObjects = new HashMap<String, String>();
-
-		//String column = columnName.pop();
-		for (Map.Entry<String, String[]> entry : mapLines.entrySet()) {
-
-			String[] colunName = entry.getKey().split(Pattern.quote("."));
-			String colunValue = entry.getValue();
-					
-			for(String col: colunName) {
-				ObjectNode game1 = mapper.createObjectNode().objectNode();
-				game1.put("name", "Fall Out 4");
+	public ObjectNode addObject(ObjectNode node, Stack<String> key_path, Stack<String> key_value, Map<String, Object> mapObject, Map<String, Map<String ,Object>> fatherObject) throws JsonProcessingException {
+		//ObjectNode newNode = mapper.createObjectNode().objectNode();
+		//final ObjectNode newNode = mapper.createObjectNode();
+		//final ObjectNode newNode = mapper.createObjectNode();
+		
+		
+		String value = key_value.pop();
+		if (value.indexOf("_#_") == -1) {
+			mapObject.put(key_path.pop(), value);
+			//ObjectNode newNode2 = addObject(newNode, key_path, key_value);
+			node = addObject(node, key_path, key_value, mapObject, fatherObject);
+			
+			return node;
+			//logger.info(mapper.writeValueAsString(newNode2));
+			
+		}else {
+			String fatherName = key_path.pop();
+			Map<String ,Object> mapChilds = fatherObject.get(fatherName);
+			if (mapChilds==null) {
+				//mapChilds = new Object[]{};  //For Array of Objects
+				mapChilds = new HashMap<String, Object>();
+				mapChilds.putAll(mapObject);
+				//mapChilds = Arrays.copyOf(mapChilds, mapChilds.length +1);
+				//mapChilds[mapChilds.length - 1] = mapObject;
+				fatherObject.put(fatherName, mapChilds);
+			}else {
+				//mapChilds = Arrays.copyOf(mapChilds, mapChilds.length +1);
+				//mapChilds[mapChilds.length - 1] = mapObject;
+				mapChilds.putAll(mapObject);
+				fatherObject.put(fatherName, mapChilds);
 			}
 			
+			//JsonNode node = mapper.valueToTree(fatherObject);
+			node = mapper.valueToTree(fatherObject);
+			//node.with(key_path.pop(), mapObject);
+		}
 			
-			if ("DATA_TYPE".equalsIgnoreCase(colunName) || "TEST_CASE".equalsIgnoreCase(colunName)) {
+		
+		//newNode.with(key_path.pop()).set("GamesArray", key_value.pop());
+		
+//		for (int x = 0; x < colNames.length; x++) {
+//			if (x == colNames.length - 1) {
+//				// mapObjects.put(colNames[x], columnValues[i]);
+//				// newnewNode.put(colNames[x], "Fall Out 4");
+//			} else {
+//				// mapObjects.put(colNames[x], "");
+//
+//			}
+//		}
+		
+		return node;
+
+		// ObjectNode arrayPlus = mapper.createObjectNode().objectNode();
+		// arrayPlus.with("Calculation").set("GamesArray", arrayNode);
+
+		// arrayPlus.with("Calculation").set("GamesArray", arrayNode);
+
+	}
+
+	public String[] identifyObject(Map<String, String[]> mapLines, Stack<String> keyPath)
+			throws JsonProcessingException, IOException {
+		//JsonNode root = mapper.readTree("{}");
+
+		// String column = columnName.pop();
+		String[] columnNames = mapLines.get("ColumnsNames");
+		String[] columnValues = mapLines.get("ColumnsValues");
+
+//		String[] columnNames = names.get("ColumnsNames").toString().split(",");
+//		String[] columnValue = mapLines.get("ColumnsValues").toString().split(",");
+
+		// Stack<String> keyPath = new Stack<String>();
+
+		// Distinguish the Fields from the Objects
+		ObjectNode node = mapper.createObjectNode().objectNode();
+
+		Map<String, String> mapObjects = new HashMap<String, String>();
+		Map<String, Map<String ,Object>> fatherObject = new HashMap<String, Map<String, Object>>();
+		//Map<String, Object[]> fatherObject = new HashMap<String, Object[]>();
+		for (int i = 0; i < columnNames.length; i++) {
+			if ("DATA_TYPE".equalsIgnoreCase(columnNames[i]) || "TEST_CASE".equalsIgnoreCase(columnNames[i])) {
 				continue;
 			}
 
-			// If the Dot is the last then the field name is the last
+			String[] colNames = columnNames[i].split(Pattern.quote("."));
+			 Stack<String> key_path = new Stack<String>();
+			 Stack<String> key_value = new Stack<String>();
+							
+			for (int x = 0; x < colNames.length; x++) {
+				key_path.push(colNames[x]);
+				if (x == colNames.length - 1) {
+					mapObjects.put(colNames[x], columnValues[i]);
+					key_value.push(columnValues[i]);
+				} else {
+					mapObjects.put(colNames[x], "");
+					key_value.push(x + "_#_");
+					//node.put(colNames, "Fall Out 4");
+
+				}
+
+			}
+			Map<String, Object> mapObject = new HashMap<String, Object>();
+			node = addObject(node, key_path, key_value, mapObject, fatherObject);
+			// keyPath.push(colNames);
+
+			// node.put(colNames, "Fall Out 4");
 
 		}
+		
 
 		
-		try {
-			int idxArr = Integer.parseInt(column);
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
 
-		
-		
+//			if ("DATA_TYPE".equalsIgnoreCase(colunName) || "TEST_CASE".equalsIgnoreCase(colunName)) {
+//				continue;
+//			}
+
+		// If the Dot is the last then the field name is the last
+
+//		try {
+//			int idxArr = Integer.parseInt(column);
+//		} catch (Exception e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
+
 		return new String[0];
 
 	}
+
+//	public JsonNode creationObj(JsonNode root, String fieldName, String fieldValue) {
+//		
+//		if (fieldValue == "") {
+//			creationObj(root, fieldName, fieldValue) {
+//		}
+//			
+//		ObjectNode node = mapper.createObjectNode().objectNode();
+//		node.put(fieldName, "Fall Out 4");
+//
+//		return root;
+//		
+//	}
 
 	public void displayArray(int[] w) {
 		logger.info("\t\t\t[");
