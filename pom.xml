@@ -5,7 +5,7 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>com.shifthunter.tasks</groupId>
-	<artifactId>shifthunter-task-linear-to-json</artifactId>
+	<artifactId>task-linear-to-json</artifactId>
 	<version>1.0.0</version>
 	<packaging>jar</packaging>
 
@@ -78,11 +78,6 @@
 			<groupId>com.google.guava</groupId>
 			<artifactId>guava</artifactId>
 			<version>${guava.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>com.sun.jersey</groupId>
-			<artifactId>jersey-client</artifactId>
-			<version>1.8</version>
 		</dependency>
 	</dependencies>
 
