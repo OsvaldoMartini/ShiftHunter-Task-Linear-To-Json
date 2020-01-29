@@ -86,7 +86,7 @@ public class TollProcessingTask implements CommandLineRunner {
 			
 			if (strings.length > 0) {
 				
-				logger.info("strings.length" + strings.length);
+				logger.info("strings.length: " + strings.length);
 
 				Map<String, String> argsMap = new HashMap<String, String>();
 
