@@ -66,10 +66,27 @@ public class TollProcessingTask implements CommandLineRunner {
 		logger.info("environment : " + environment);
 		logger.info("Active Properties");
 		logger.info("pathDataFile : " + pathDataFile);
-
+		
+		String testCaseLine = System.getProperty("testCaseLine"); 
+		String operationName = System.getProperty("operationName"); 
+		
+		logger.info("Args via \"-DmyVar\" cmd line : ");
+		logger.info("testCaseLine : " + testCaseLine);
+		logger.info("operationName : " + operationName);
+		
 		if (null != strings) {
 
+			if (strings.length == 0 && testCaseLine != null &&  operationName != null) {
+				strings = Arrays.copyOf(strings, strings.length +1);
+				strings[strings.length - 1] = "testCaseLine=" + testCaseLine;
+				
+				strings = Arrays.copyOf(strings, strings.length +1);
+				strings[strings.length - 1] = "operationName=" + operationName;
+			}
+			
 			if (strings.length > 0) {
+				
+				logger.info("strings.length" + strings.length);
 
 				Map<String, String> argsMap = new HashMap<String, String>();
 
@@ -96,10 +113,13 @@ public class TollProcessingTask implements CommandLineRunner {
 
 				System.out.println(retValue);
 
+			}else
+			{
+				logger.info("Task completed without Params");
+				//throw new Exception("Task completed without Params");
 			}
 		}
 
-		logger.info("Task completed.");
 	}
 
 	/*
@@ -122,7 +142,6 @@ public class TollProcessingTask implements CommandLineRunner {
 			String lastOne = fieldName.substring(lastIndexOf);
 			String allValues = Arrays.asList(keyAttributes).toString();
 			allValues = String.join(",", keyAttributes);
-
 		}
 
 		Stack<String> keyPath = new Stack<String>();

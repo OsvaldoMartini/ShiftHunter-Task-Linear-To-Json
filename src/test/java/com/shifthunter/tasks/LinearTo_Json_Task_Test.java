@@ -14,7 +14,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Profile;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit4.SpringRunner;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -72,7 +71,7 @@ public class LinearTo_Json_Task_Test {
 			assert false;
 		}
 
-		logger.info("request made");
+		logger.info("taskProcessorTest Executed");
 	}
 
 	@Ignore
